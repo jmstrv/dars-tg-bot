@@ -24,6 +24,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -1063,10 +1064,48 @@ func main() {
 	state := newState()
 	startScheduler(bot, state)
 
-	u := tgbotapi.NewUpdate(0)
-	u.Timeout = 60
-	u.AllowedUpdates = []string{"message", "callback_query", "my_chat_member"}
-	updates := bot.GetUpdatesChan(u)
+	webhookPath := os.Getenv("WEBHOOK_PATH")
+	if webhookPath == "" {
+		webhookPath = "/telegram-webhook"
+	}
+	if !strings.HasPrefix(webhookPath, "/") {
+		webhookPath = "/" + webhookPath
+	}
+
+	webhookURL := os.Getenv("WEBHOOK_URL")
+	if webhookURL == "" {
+		if externalURL := os.Getenv("RENDER_EXTERNAL_URL"); externalURL != "" {
+			webhookURL = strings.TrimRight(externalURL, "/") + webhookPath
+		}
+	}
+
+	port := os.Getenv("PORT")
+	var updates tgbotapi.UpdatesChannel
+	if port != "" && webhookURL != "" {
+		hookConfig, err := tgbotapi.NewWebhook(webhookURL)
+		if err != nil {
+			log.Fatalf("failed to create webhook config: %v", err)
+		}
+		_, err = bot.Request(hookConfig)
+		if err != nil {
+			log.Fatalf("failed to set webhook: %v", err)
+		}
+		updates = bot.ListenForWebhook(webhookPath)
+		go func() {
+			log.Printf("starting webhook server on %s", ":"+port)
+			if err := http.ListenAndServe(":"+port, nil); err != nil {
+				log.Fatalf("webhook server stopped: %v", err)
+			}
+		}()
+	} else {
+		if port != "" {
+			log.Printf("PORT set but webhook URL missing; falling back to polling")
+		}
+		u := tgbotapi.NewUpdate(0)
+		u.Timeout = 60
+		u.AllowedUpdates = []string{"message", "callback_query", "my_chat_member"}
+		updates = bot.GetUpdatesChan(u)
+	}
 
 	for update := range updates {
 

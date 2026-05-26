@@ -43,6 +43,14 @@ Admin commands
 
 Environment
 - `BOT_TOKEN` — Telegram bot token (required)
+- `WEBHOOK_PATH` — optional webhook path, default `/telegram-webhook`
+- `WEBHOOK_URL` — optional full webhook URL; if not set, Render's `RENDER_EXTERNAL_URL` is used
+
+Render deployment
+- Root Directory: `.`
+- Build Command: `go build -o dars-bot .`
+- Start Command: `./dars-bot`
+- Webhook URL: `https://<your-app>.onrender.com/telegram-webhook`
 
 Notes
 - No additional configuration files required for basic use.
